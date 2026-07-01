@@ -94,3 +94,54 @@ for sheet_name, date_columns in date_columns_by_sheet.items():
         workbook[sheet_name] = convert_date_columns(workbook[sheet_name], date_columns)
 
 print("Date columns converted.")
+
+data_quality_issues = []
+
+def add_issue(source_table, record_id, issue_type, severity, description, recommended_action):
+    data_quality_issues.append({
+        "source_table": source_table,
+        "record_id": record_id,
+        "issue_type": issue_type,
+        "severity": severity,
+        "description": description,
+        "recommended_action": recommended_action,
+    })
+    
+assessments = workbook["assessments"]
+
+for index, row in assessments.iterrows():
+    current_level = row["current_level"]
+
+    if pd.isna(current_level) or current_level < 1 or current_level > 5:
+        add_issue(
+            source_table="assessments",
+            record_id=row["assessment_id"],
+            issue_type="invalid_level_value",
+            severity="High",
+            description=f"Assessment has invalid current level: {current_level}",
+            recommended_action="Review assessment level and correct it to a valid 1-5 value.",
+        )
+        
+for index, row in assessments.iterrows():
+    required_level = row["required_level"]
+
+    if pd.isna(required_level) or required_level < 1 or required_level > 5:
+        add_issue(
+            source_table="assessments",
+            record_id=row["assessment_id"],
+            issue_type="invalid_required_level",
+            severity="High",
+            description=f"Assessment has invalid required level: {required_level}",
+            recommended_action="Review required competency level and correct it to a valid 1-5 value.",
+        )
+        
+print(f"Business rule checks completed. Issues found: {len(data_quality_issues)}")
+
+print("Current level min:", assessments["current_level"].min())
+print("Current level max:", assessments["current_level"].max())
+print("Required level min:", assessments["required_level"].min())
+print("Required level max:", assessments["required_level"].max())
+print("Missing current level:", assessments["current_level"].isna().sum())
+print("Missing required level:", assessments["required_level"].isna().sum())
+
+#Below is the relationship check section:
