@@ -145,3 +145,40 @@ print("Missing current level:", assessments["current_level"].isna().sum())
 print("Missing required level:", assessments["required_level"].isna().sum())
 
 #Below is the relationship check section:
+employees = workbook["employees"]
+assessments = workbook["assessments"]
+
+valid_employee_ids = set(employees["employee_id"])
+assessment_employee_ids = set(assessments["employee_id"])
+
+invalid_assessment_employee_ids = assessment_employee_ids - valid_employee_ids
+
+for employee_id in invalid_assessment_employee_ids:
+    add_issue(
+        source_table="assessments",
+        record_id=employee_id,
+        issue_type="broken_relationship",
+        severity="High",
+        description=f"Assessment references employee_id '{employee_id}', but this employee does not exist in the employees table.",
+        recommended_action="Review the assessment employee_id or add the missing employee record.",
+    )
+
+print(f"Employee relationship checks completed. Invalid employee IDs found: {len(invalid_assessment_employee_ids)}")
+competency_model = workbook["competency_model"]
+
+valid_competency_ids = set(competency_model["competency_id"])
+assessment_competency_ids = set(assessments["competency_id"])
+
+invalid_assessment_competency_ids = assessment_competency_ids - valid_competency_ids
+
+for competency_id in invalid_assessment_competency_ids:
+    add_issue(
+        source_table="assessments",
+        record_id=competency_id,
+        issue_type="broken_relationship",
+        severity="High",
+        description=f"Assessment references competency_id '{competency_id}', but this competency does not exist in the competency_model table.",
+        recommended_action="Review the assessment competency_id or add the missing competency model record.",
+    )
+
+print(f"Competency relationship checks completed. Invalid competency IDs found: {len(invalid_assessment_competency_ids)}")
