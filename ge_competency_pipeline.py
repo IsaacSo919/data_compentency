@@ -509,6 +509,41 @@ def export_tableau_summary_tables(enriched_issues, output_folder):
     severity_summary.to_csv(output_folder / "severity_summary.csv", index=False)
 
     print("Tableau summary tables exported.")
+
+def verify_outputs(data_quality_issues, enriched_issues):
+    issues_df = pd.DataFrame(data_quality_issues)
+
+    print("\nVerification checks:")
+
+    print("Raw issue rows:", len(issues_df))
+    print("Enriched issue rows:", len(enriched_issues))
+
+    if len(issues_df) != len(enriched_issues):
+        print("WARNING: Raw issue count and enriched issue count do not match.")
+    else:
+        print("PASS: Raw and enriched issue counts match.")
+
+    missing_context = enriched_issues["team"].isna().sum()
+
+    print("Rows missing team context:", missing_context)
+
+    if missing_context > 0:
+        print("WARNING: Some enriched rows are missing team context.")
+    else:
+        print("PASS: All enriched rows have team context.")
+
+    issue_type_total = (
+        enriched_issues
+        .groupby("issue_type")
+        .size()
+        .sum()
+    )
+
+    if issue_type_total != len(enriched_issues):
+        print("WARNING: Issue type summary total does not match enriched rows.")
+    else:
+        print("PASS: Issue type totals match enriched rows.")
+        
 def main():
     data_quality_issues = []
 
@@ -537,6 +572,7 @@ def main():
     )
 
     export_tableau_summary_tables(enriched_issues, OUTPUT_FOLDER)
+    verify_outputs(data_quality_issues, enriched_issues)
 
 
 if __name__ == "__main__":
