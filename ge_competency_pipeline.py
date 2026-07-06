@@ -297,3 +297,26 @@ for index, row in access_audit.iterrows():
             recommended_action="Review whether access should be removed, disabled, or confirmed as closed.",
         )
 print(f"Inactive employee access checks completed. Total issues found: {len(data_quality_issues)}")
+# 7. training action and competency relationship check
+training_action_pairs = set(
+    zip(
+        training_actions["employee_id"],
+        training_actions["competency_id"]
+    )
+)
+for index, row in assessments.iterrows():
+    employee_id = row["employee_id"]
+    competency_id = row["competency_id"]
+    gap = row["gap"]
+
+    if pd.notna(gap) and gap >= 2:
+        if (employee_id, competency_id) not in training_action_pairs:
+            add_issue(
+                source_table="assessments",
+                record_id=row["assessment_id"],
+                issue_type="high_gap_without_training_action",
+                severity="High",
+                description=f"Employee '{employee_id}' has a competency gap of {gap} for competency '{competency_id}', but no matching training action exists.",
+                recommended_action="Create or review a training action to address this competency gap.",
+            )
+print(f"High gap training action checks completed. Total issues found: {len(data_quality_issues)}")
