@@ -359,7 +359,109 @@ def export_data_quality_issues(data_quality_issues, output_folder):
     else:
         print("No data quality issues found.")
 
+def build_summary_report(workbook, data_quality_issues):
+    issues_df = pd.DataFrame(data_quality_issues)
 
+    if issues_df.empty:
+        print("No issues to summarise.")
+        return {}
+
+    summary = {}
+
+    summary["issues_by_type"] = issues_df["issue_type"].value_counts()
+    summary["issues_by_severity"] = issues_df["severity"].value_counts()
+    summary["issues_by_source_table"] = issues_df["source_table"].value_counts()
+
+    print("\nIssues by type:")
+    print(summary["issues_by_type"])
+
+    print("\nIssues by severity:")
+    print(summary["issues_by_severity"])
+
+    print("\nIssues by source table:")
+    print(summary["issues_by_source_table"])
+
+    return summary
+
+
+def export_enriched_issue_report(workbook, data_quality_issues, output_folder):
+    issues_df = pd.DataFrame(data_quality_issues)
+
+    if issues_df.empty:
+        print("No issues to enrich.")
+        return
+
+    assessments = workbook["assessments"]
+    access_audit = workbook["access_audit"]
+
+    assessment_context_columns = [
+        "assessment_id",
+        "employee_id",
+        "employee_name",
+        "team",
+        "role_family",
+        "competency_id",
+        "competency_area",
+        "competency_name",
+        "gap",
+        "criticality",
+        "current_level",
+        "required_level",
+        "evidence_status",
+        "assessment_age_days",
+    ]
+
+    access_context_columns = [
+        "audit_id",
+        "employee_id",
+        "employee_name",
+        "team",
+        "permission_role",
+        "tool_access",
+        "last_login",
+        "access_issue",
+        "ticket_status",
+        "ticket_age_days",
+    ]
+
+    assessment_issues = issues_df[issues_df["source_table"] == "assessments"].copy()
+    access_issues = issues_df[issues_df["source_table"] == "access_audit"].copy()
+
+    enriched_assessment_issues = assessment_issues.merge(
+        assessments[assessment_context_columns],
+        how="left",
+        left_on="record_id",
+        right_on="assessment_id",
+    )
+
+    enriched_access_issues = access_issues.merge(
+        access_audit[access_context_columns],
+        how="left",
+        left_on="record_id",
+        right_on="audit_id",
+    )
+
+    enriched_issues = pd.concat(
+        [enriched_assessment_issues, enriched_access_issues],
+        ignore_index=True,
+        sort=False,
+    )
+
+    output_folder.mkdir(exist_ok=True)
+
+    enriched_issues.to_csv(
+        output_folder / "enriched_data_quality_issues.csv",
+        index=False,
+    )
+
+    enriched_issues.to_excel(
+        output_folder / "enriched_data_quality_issues.xlsx",
+        index=False,
+    )
+
+    print("Enriched data quality issue files exported.")
+    print("Enriched issue rows:", len(enriched_issues))
+    
 def main():
     data_quality_issues = []
 
@@ -378,7 +480,9 @@ def main():
     check_inactive_employee_access(workbook, data_quality_issues)
     check_high_gap_without_training_action(workbook, data_quality_issues)
 
+    build_summary_report(workbook, data_quality_issues)
     export_data_quality_issues(data_quality_issues, OUTPUT_FOLDER)
+    export_enriched_issue_report(workbook, data_quality_issues, OUTPUT_FOLDER)
 
 
 if __name__ == "__main__":
