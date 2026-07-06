@@ -237,3 +237,24 @@ for index, row in training_actions.iterrows():
         )
 
 print(f"Relationship checks completed. Total issues found: {len(data_quality_issues)}")
+
+# missing evidence check
+evidence_log = workbook["evidence_log"]
+
+assessment_ids_with_evidence = set(evidence_log["assessment_id"])
+
+for index, row in assessments.iterrows():
+    assessment_id = row["assessment_id"]
+    evidence_status = row["evidence_status"]
+
+    if evidence_status in ["Submitted", "Verified"]:
+        if assessment_id not in assessment_ids_with_evidence:
+            add_issue(
+                source_table="assessments",
+                record_id=assessment_id,
+                issue_type="missing_evidence",
+                severity="Medium",
+                description=f"Assessment '{assessment_id}' has evidence_status '{evidence_status}', but no matching evidence record exists in evidence_log.",
+                recommended_action="Check whether evidence was not uploaded, incorrectly linked, or missing from the evidence log.",
+            )
+print(assessments["evidence_status"].value_counts(dropna=False))
