@@ -238,7 +238,7 @@ for index, row in training_actions.iterrows():
 
 print(f"Relationship checks completed. Total issues found: {len(data_quality_issues)}")
 
-# missing evidence check
+# 4. missing evidence check
 evidence_log = workbook["evidence_log"]
 
 assessment_ids_with_evidence = set(evidence_log["assessment_id"])
@@ -258,3 +258,42 @@ for index, row in assessments.iterrows():
                 recommended_action="Check whether evidence was not uploaded, incorrectly linked, or missing from the evidence log.",
             )
 print(assessments["evidence_status"].value_counts(dropna=False))
+
+# 5. stale assessment check
+for index, row in assessments.iterrows():
+    assessment_age_days = row["assessment_age_days"]
+
+    if pd.notna(assessment_age_days) and assessment_age_days > 365:
+        add_issue(
+            source_table="assessments",
+            record_id=row["assessment_id"],
+            issue_type="stale_assessment",
+            severity="Medium",
+            description=f"Assessment is {assessment_age_days} days old and may need review.",
+            recommended_action="Review and refresh the assessment if competency evidence is no longer current.",
+        )
+print(f"Stale assessment checks completed. Total issues found: {len(data_quality_issues)}")
+
+# 6. inactive employee record check
+access_audit = workbook["access_audit"]
+
+inactive_employee_ids = set(
+    employees.loc[
+        employees["account_status"] == "Inactive",
+        "employee_id"
+    ]
+)
+
+for index, row in access_audit.iterrows():
+    employee_id = row["employee_id"]
+
+    if employee_id in inactive_employee_ids:
+        add_issue(
+            source_table="access_audit",
+            record_id=row["audit_id"],
+            issue_type="inactive_employee_access_record",
+            severity="High",
+            description=f"Inactive employee '{employee_id}' still appears in the access audit records.",
+            recommended_action="Review whether access should be removed, disabled, or confirmed as closed.",
+        )
+print(f"Inactive employee access checks completed. Total issues found: {len(data_quality_issues)}")
