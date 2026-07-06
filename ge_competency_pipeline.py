@@ -5,9 +5,9 @@ input_path = Path("engineering_competency_gap_dataset_v2.xlsx")
 
 workbook = pd.read_excel(input_path, sheet_name=None)
 
-for sheet_name, df in workbook.items():
-    print(sheet_name, df.shape)
-    
+for sheet_name, df in workbook.items(): #df means data_frame, i.e  a table(pandas' excel sheet)
+    print(sheet_name, df.shape)# df.shape returns a tuple representing the dimensionality of the DataFrame. It gives you the number of rows and columns in the DataFrame. The first element of the tuple is the number of rows, and the second element is the number of columns.
+
 required_sheets = [
     "employees",
     "competency_model",
@@ -18,41 +18,41 @@ required_sheets = [
     "competency_targets",
 ]
 
-missing_sheets = []
+missing_sheets = [] # an empty array for missing sheet
 
-for sheet in required_sheets:
+for sheet in required_sheets: # this loop checks all required sheets.
     if sheet not in workbook:
         missing_sheets.append(sheet)
 
-if missing_sheets:
+if missing_sheets: # this logic is if (missing_sheets is true(not empty)) then raise an error with the missing sheet names.
     raise ValueError(f"Missing required sheets: {missing_sheets}")
 
 print("All required sheets are present.")
 
 def clean_column_name(column_name):
     column_name = str(column_name)
-    column_name = column_name.strip()
-    column_name = column_name.lower()
-    column_name = column_name.replace(" ", "_")
-    column_name = column_name.replace("-", "_")
-    column_name = column_name.replace("/", "_")
+    column_name = column_name.strip() #strip() method removes any leading and trailing whitespace characters from the string. e.g. if the column name is "  Employee ID  ", strip() will remove the spaces and return "Employee ID".
+    column_name = column_name.lower() #lowercase
+    column_name = column_name.replace(" ", "_") #snake_case: replaces spaces with underscores
+    column_name = column_name.replace("-", "_") #snake_case: replaces hyphens with underscores
+    column_name = column_name.replace("/", "_") #snake_case: replaces forward slashes with underscores
     return column_name
 
-for sheet_name, df in workbook.items():
+for sheet_name, df in workbook.items(): #For each sheet in the workbook, this loop iterates through the DataFrame and applies the clean_column_name function to each column name. The cleaned column names are then assigned back to the DataFrame's columns attribute.
     df.columns = [clean_column_name(column) for column in df.columns]
 
 #   
 def clean_text_value(value):
-    if pd.isna(value):
+    if pd.isna(value): #isna() function checks if the value is NaN (Not a Number) or missing. If the value is NaN, it returns the value as is without any further processing.
         return value
-
-    value = str(value)
-    value = value.strip()
-    value = " ".join(value.split())
+    
+    value = str(value) # convert the value to a string using str(value). 
+    value = value.strip() #strip() method removes any leading and trailing whitespace characters from the string. e.g. if the value is "  Hello World  ", strip() will remove the spaces and return "Hello World".
+    value = " ".join(value.split())# The split() method splits the string into a list of words based on whitespace, and then the join() method combines the words back into a single string with a single space between each word. This effectively removes any extra spaces between words.
     return value
 
 for sheet_name, df in workbook.items():
-    text_columns = df.select_dtypes(include=["object", "string"]).columns
+    text_columns = df.select_dtypes(include=["object", "string"]).columns # Select all columns with object or string data types
 
     for column in text_columns:
         df[column] = df[column].apply(clean_text_value)
@@ -62,7 +62,7 @@ print("Text values standardised.")
 if "employees" in workbook:
     employees = workbook["employees"]
 
-    if "account_status" in employees.columns:
+    if "account_status" in employees.columns: #account_status is a column in employees sheet. This logic checks if the account_status column exists in the employees DataFrame. If it does, the code proceeds to standardize the values in that column.
         employees["account_status"] = (
             employees["account_status"]
             .str.lower()
@@ -149,36 +149,91 @@ employees = workbook["employees"]
 assessments = workbook["assessments"]
 
 valid_employee_ids = set(employees["employee_id"])
-assessment_employee_ids = set(assessments["employee_id"])
 
-invalid_assessment_employee_ids = assessment_employee_ids - valid_employee_ids
+for index, row in assessments.iterrows():
+    employee_id = row["employee_id"]
 
-for employee_id in invalid_assessment_employee_ids:
-    add_issue(
-        source_table="assessments",
-        record_id=employee_id,
-        issue_type="broken_relationship",
-        severity="High",
-        description=f"Assessment references employee_id '{employee_id}', but this employee does not exist in the employees table.",
-        recommended_action="Review the assessment employee_id or add the missing employee record.",
-    )
+    if employee_id not in valid_employee_ids: # data quality report
+        add_issue(
+            source_table="assessments",
+            record_id=row["assessment_id"],
+            issue_type="invalid_employee_id",
+            severity="High",
+            description=f"Assessment references employee_id '{employee_id}', but this employee does not exist in the employees table.",
+            recommended_action="Review the assessment employee_id or add the missing employee record.",
+        )
 
-print(f"Employee relationship checks completed. Invalid employee IDs found: {len(invalid_assessment_employee_ids)}")
 competency_model = workbook["competency_model"]
 
 valid_competency_ids = set(competency_model["competency_id"])
-assessment_competency_ids = set(assessments["competency_id"])
 
-invalid_assessment_competency_ids = assessment_competency_ids - valid_competency_ids
+for index, row in assessments.iterrows():
+    competency_id = row["competency_id"]
 
-for competency_id in invalid_assessment_competency_ids:
-    add_issue(
-        source_table="assessments",
-        record_id=competency_id,
-        issue_type="broken_relationship",
-        severity="High",
-        description=f"Assessment references competency_id '{competency_id}', but this competency does not exist in the competency_model table.",
-        recommended_action="Review the assessment competency_id or add the missing competency model record.",
-    )
+    if competency_id not in valid_competency_ids: # data quality report
+        add_issue(
+            source_table="assessments",
+            record_id=row["assessment_id"],
+            issue_type="invalid_competency_id",
+            severity="High",
+            description=f"Assessment references competency_id '{competency_id}', but this competency does not exist in the competency_model table.",
+            recommended_action="Review the assessment competency_id or add the missing competency model record.",
+        )
+        
+# 1. evidence_log assessment_id check
+evidence_log = workbook["evidence_log"]
 
-print(f"Competency relationship checks completed. Invalid competency IDs found: {len(invalid_assessment_competency_ids)}")
+valid_assessment_ids = set(assessments["assessment_id"])
+
+for index, row in evidence_log.iterrows():
+    assessment_id = row["assessment_id"]
+
+    if assessment_id not in valid_assessment_ids:
+        add_issue(
+            source_table="evidence_log",
+            record_id=row["evidence_id"],
+            issue_type="invalid_evidence_assessment_id",
+            severity="High",
+            description=f"Evidence references assessment_id '{assessment_id}', but this assessment does not exist in the assessments table.",
+            recommended_action="Review the evidence assessment_id or link it to a valid assessment record.",
+        )
+        
+# 2. training_actions employee_id check        
+training_actions = workbook["training_actions"]
+
+valid_employee_ids = set(employees["employee_id"])
+
+for index, row in training_actions.iterrows():
+    employee_id = row["employee_id"]
+
+    if employee_id not in valid_employee_ids:
+        add_issue(
+            source_table="training_actions",
+            record_id=row["action_id"],
+            issue_type="invalid_training_employee_id",
+            severity="High",
+            description=f"Training action references employee_id '{employee_id}', but this employee does not exist in the employees table.",
+            recommended_action="Review the training action employee_id or add the missing employee record.",
+        )
+        
+#3. training_actions competency_id check
+'''
+自然語言：
+    每個 training action 應該對應一個 valid competency。
+'''
+valid_competency_ids = set(competency_model["competency_id"])
+
+for index, row in training_actions.iterrows():
+    competency_id = row["competency_id"]
+
+    if competency_id not in valid_competency_ids:
+        add_issue(
+            source_table="training_actions",
+            record_id=row["action_id"],
+            issue_type="invalid_training_competency_id",
+            severity="High",
+            description=f"Training action references competency_id '{competency_id}', but this competency does not exist in the competency_model table.",
+            recommended_action="Review the training action competency_id or add the missing competency model record.",
+        )
+
+print(f"Relationship checks completed. Total issues found: {len(data_quality_issues)}")
