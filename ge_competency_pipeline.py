@@ -462,6 +462,53 @@ def export_enriched_issue_report(workbook, data_quality_issues, output_folder):
     print("Enriched data quality issue files exported.")
     print("Enriched issue rows:", len(enriched_issues))
     
+    return enriched_issues
+    
+def export_tableau_summary_tables(enriched_issues, output_folder):
+    if enriched_issues.empty:
+        print("No enriched issues to summarise.")
+        return
+
+    output_folder.mkdir(exist_ok=True)
+
+    issue_type_summary = (
+        enriched_issues
+        .groupby(["issue_type", "severity"], dropna=False)
+        .size()
+        .reset_index(name="issue_count")
+        .sort_values("issue_count", ascending=False)
+    )
+
+    team_issue_summary = (
+        enriched_issues
+        .groupby(["team", "severity"], dropna=False)
+        .size()
+        .reset_index(name="issue_count")
+        .sort_values("issue_count", ascending=False)
+    )
+
+    competency_area_summary = (
+        enriched_issues
+        .groupby(["competency_area", "issue_type"], dropna=False)
+        .size()
+        .reset_index(name="issue_count")
+        .sort_values("issue_count", ascending=False)
+    )
+
+    severity_summary = (
+        enriched_issues
+        .groupby(["severity"], dropna=False)
+        .size()
+        .reset_index(name="issue_count")
+        .sort_values("issue_count", ascending=False)
+    )
+
+    issue_type_summary.to_csv(output_folder / "issue_type_summary.csv", index=False)
+    team_issue_summary.to_csv(output_folder / "team_issue_summary.csv", index=False)
+    competency_area_summary.to_csv(output_folder / "competency_area_summary.csv", index=False)
+    severity_summary.to_csv(output_folder / "severity_summary.csv", index=False)
+
+    print("Tableau summary tables exported.")
 def main():
     data_quality_issues = []
 
@@ -482,7 +529,14 @@ def main():
 
     build_summary_report(workbook, data_quality_issues)
     export_data_quality_issues(data_quality_issues, OUTPUT_FOLDER)
-    export_enriched_issue_report(workbook, data_quality_issues, OUTPUT_FOLDER)
+
+    enriched_issues = export_enriched_issue_report(
+        workbook,
+        data_quality_issues,
+        OUTPUT_FOLDER,
+    )
+
+    export_tableau_summary_tables(enriched_issues, OUTPUT_FOLDER)
 
 
 if __name__ == "__main__":
